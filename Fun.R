@@ -1,3 +1,19 @@
+
+
+
+
+packages.to.use <- c("corrplot", "terra", "tictoc", "tidyverse","sf")
+
+packages.to.use <- unique(packages.to.use)
+
+for(package in packages.to.use) {
+  print(package)
+  if( ! package %in% rownames(installed.packages()) ) { install.packages(package ) }
+  if( ! package %in% rownames(installed.packages()) ) { stop("Error on package instalation") }
+  suppressWarnings( library(package, character.only = TRUE) )
+}
+
+
 # VIF----
 
 vif_filter <- function(x, th = 10) {
@@ -69,7 +85,7 @@ pa_mh_present <- function(j, th = .95) {
   mh_raster_p <- terra::rast(mh_p[, c(1:2, j+3)], crs = reference_system)
   names(mh_raster_p) <- colnames(mh_p[j+3])
   plot(mh_raster_p)
-  writeRaster(mh_raster_p, paste0(dir_result, "PRE_", names[j], ".tif"), overwrite = TRUE)
+  writeRaster(mh_raster_p, paste0(dir_present, "PRE_", names[j], ".tif"), overwrite = TRUE)
   assign(paste0("mh_raster_p_", names[j]), mh_raster_p, envir = .GlobalEnv)
 
 }
@@ -99,7 +115,7 @@ pa_mh_future <- function(j, th = .95) {
   mh_raster_f <- terra::rast(mh_f[, c(1:2, j+3)], crs = reference_system)
   names(mh_raster_f) <- colnames(mh_f[j+3])
   plot(mh_raster_f)
-  writeRaster(mh_raster_f, paste0(dir_result, "FUT_", names[j], ".tif"), overwrite = TRUE)
+  writeRaster(mh_raster_f, paste0(dir_future, "FUT_", names[j], ".tif"), overwrite = TRUE)
   assign(paste0("mh_raster_f_", names[j]), mh_raster_f, envir = .GlobalEnv)
   
 }
@@ -137,7 +153,7 @@ pa_mh_present_future <- function(j) {
   mh_raster_p <- terra::rast(mh_p[, c(1:2, j+3)], crs = reference_system)
   names(mh_raster_p) <- colnames(mh_p[j+3])
   plot(mh_raster_p)
-  writeRaster(mh_raster_p, paste0(dir_result, "PRE_", names[j], ".tif"), overwrite = TRUE)
+  writeRaster(mh_raster_p, paste0(dir_present, "PRE_", names[j], ".tif"), overwrite = TRUE)
   assign(paste0("mh_raster_pf_", names[j]), mh_raster_p, envir = .GlobalEnv)
   
   
@@ -167,9 +183,9 @@ pa_mh_present_future <- function(j) {
   mh_raster_p_f <- terra::rast(mh_raster_p_f[, c(1:2, j+3)], crs = reference_system)
   names(mh_raster_p_f) <- colnames(mh_p_f[j+3])
   plot(mh_raster_p_f)
-  # writeRaster(mh_raster_p_f,
-  #             paste0(dir_result, model, "_", year, "_", names[j], ".tif"),
-  #             overwrite = TRUE)
+  writeRaster(mh_raster_p_f,
+              paste0(dir_future, model, "_", year, "_", names[j], ".tif"),
+              overwrite = TRUE)
   assign(paste0("mh_raster_p_", names[j]), mh_raster_p, envir = .GlobalEnv)
   assign(paste0("mh_raster_p_f_", names[j]), mh_raster_p_f, envir = .GlobalEnv)
   

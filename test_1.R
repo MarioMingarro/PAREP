@@ -17,6 +17,7 @@ library(caret)
 library(tictoc)
 library(spdep)
 
+source("Fun.R")
 
 # library(RStoolbox)
 # library(stringr)
@@ -30,7 +31,38 @@ study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/MURCIA
 polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/PA.shp")
 
 
-tic()
+# Create name object
+names <- polygon$NatName
+year <- "2070"
+model = "GFDL"
+
+
+# Crear las subcarpetas 'presente' y 'futuro' dentro de 'dir_result'
+dir_present <- paste0(dir_result, "Present/")
+dir_fut <- paste0(dir_result, "Future/")
+dir_futu <- paste0(dir_fut, year,"/")
+dir_future <- paste0(dir_futu, model,"/")
+
+# Crear las carpetas si no existen
+if (!dir.exists(dir_result)) {
+  dir.create(dir_result)
+}
+if (!dir.exists(dir_present)) {
+  dir.create(dir_present)
+}
+
+if (!dir.exists(dir_fut)) {
+  dir.create(dir_fut)
+}
+
+if (!dir.exists(dir_futu)) {
+  dir.create(dir_futu)
+}
+
+if (!dir.exists(dir_future)) {
+  dir.create(dir_future)
+}
+
 # CLIMATE ----
 ## Load data ----
 present_climatic_variables <- terra::rast(list.files(dir_present_climate_data, "\\.tif$", full.names = T))
@@ -63,7 +95,16 @@ data_future_climatic_variables <- terra::as.data.frame(future_climatic_variables
 data_present_climatic_variables<-na.omit(data_present_climatic_variables)
 data_future_climatic_variables <-na.omit(data_future_climatic_variables)
 
+# Pre VIF
+jpeg(paste0(dir_result, "All variables correlation.jpeg"), quality = 75, width = 1200, height = 600)
+par(mfrow = c(1, 2))
+corrplot(cor(data_present_climatic_variables[3:length(data_present_climatic_variables)]),
+         method = "number", type = "upper", title = "Present variables correlation")
+corrplot(cor(data_future_climatic_variables[3:length(data_future_climatic_variables)]),
+         method = "number", type = "upper", title = "Future variables correlation")
+dev.off()
 
+# VIF
 vif_r <- vif_filter(present_climatic_variables, th = 10)
 drop <- vif_r$excluded
 
@@ -73,14 +114,14 @@ data_future_climatic_variables <- data_future_climatic_variables[!names(data_fut
 present_climatic_variables <- terra::subset(present_climatic_variables, !names(present_climatic_variables) %in% drop)
 future_climatic_variables <- terra::subset(future_climatic_variables, !names(future_climatic_variables) %in% drop)
 
-
+# Post VIF
+jpeg(paste0(dir_result, "VIF selected variables correlation.jpeg"), quality = 75, width = 1200, height = 600)
+par(mfrow = c(1, 2))
 corrplot(cor(data_present_climatic_variables[3:length(data_present_climatic_variables)]),
-         method = "number",
-         type = "upper")
-corrplot(cor(data_future_climatic_variables[3:length(data_present_climatic_variables)]),
-         method = "number",
-         type = "upper")
-
+         method = "number", type = "upper", title = "Present variables correlation")
+corrplot(cor(data_future_climatic_variables[3:length(data_future_climatic_variables)]),
+         method = "number", type = "upper", title = "Future variables correlation")
+dev.off()
 
 
 # Add field period 
@@ -94,6 +135,23 @@ data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
 
 # Create name object
 names <- polygon$NatName
+
+
+for(j in 1:length(names)){
+  pa_mh_present_future(j)
+}
+toc()
+
+
+
+
+
+
+
+
+
+
+
 
 
 
