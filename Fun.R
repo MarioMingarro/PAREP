@@ -100,13 +100,13 @@ pa_mh_future <- function(j, th = .95) {
   names(mh_raster_f) <- colnames(mh_f[j+3])
   plot(mh_raster_f)
   writeRaster(mh_raster_f, paste0(dir_result, "FUT_", names[j], ".tif"), overwrite = TRUE)
-  assign(paste0("mh_raster_f_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  assign(paste0("mh_raster_f_", names[j]), mh_raster_f, envir = .GlobalEnv)
   
 }
 
 ## PRESENT-FUTURE----
 # Función para procesar los datos de la serie presente
-representativeness <- function(j) {
+pa_mh_present_future <- function(j) {
   
   # Presente
   data_p <- data_present_climatic_variables
@@ -134,19 +134,21 @@ representativeness <- function(j) {
   }
   
   mh_p <- cbind(data_p[,c(1:3)], mh_p)
-  mh_raster_p <- dplyr::filter(mh_p, Period == "Present")
-  mh_raster_p <- terra::rast(mh_raster_p[, c(1:2, j+3)], crs = reference_system)
+  mh_raster_p <- terra::rast(mh_p[, c(1:2, j+3)], crs = reference_system)
   names(mh_raster_p) <- colnames(mh_p[j+3])
-  writeRaster(mh_raster_p, paste0(dir_present, "PRE_", names[j], ".tif"), overwrite = TRUE)
+  plot(mh_raster_p)
+  writeRaster(mh_raster_p, paste0(dir_result, "PRE_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("mh_raster_pf_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  
   
   # Futuro
   data_p_f <- rbind(data_present_climatic_variables, data_future_climatic_variables)
   
-  mh_f <- data.frame(matrix(1,    
+  mh_p_f <- data.frame(matrix(1,    
                             nrow = nrow(data_p_f),
                             ncol = length(names)))
   
-  names(mh_f) <- names
+  names(mh_p_f) <- names
   
   for (i in 1:nrow(polygon)) {
     pol <- polygon[i, ]
@@ -156,15 +158,19 @@ representativeness <- function(j) {
     
     mh <- mahalanobis(data_p_f[, 4:length(data_p_f)], colMeans(data_polygon[, 3:length(data_polygon)]), cov(data_p_f[, 4:length(data_p_f)]), inverted = F)
     
-    mh_f[, i] <- mh
+    mh_p_f[, i] <- mh
   }
   
-  mh_f <- cbind(data_p_f[, c(1:3)], mh_f)
+  mh_p_f <- cbind(data_p_f[, c(1:3)], mh_p_f)
   
-  mh_raster_f <- dplyr::filter(mh_f, Period == "Future")
-  mh_raster_f <- terra::rast(mh_raster_f[, c(1:2, j+3)], crs = reference_system)
-  names(mh_raster_f) <- colnames(mh_f[j+3])
-  writeRaster(mh_raster_f,
-              paste0(dir_future, model, "_", year, "_", names[j], ".tif"),
-              overwrite = TRUE)
+  mh_raster_p_f <- dplyr::filter(mh_p_f, Period == "Future")
+  mh_raster_p_f <- terra::rast(mh_raster_p_f[, c(1:2, j+3)], crs = reference_system)
+  names(mh_raster_p_f) <- colnames(mh_p_f[j+3])
+  plot(mh_raster_p_f)
+  # writeRaster(mh_raster_p_f,
+  #             paste0(dir_result, model, "_", year, "_", names[j], ".tif"),
+  #             overwrite = TRUE)
+  assign(paste0("mh_raster_p_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  assign(paste0("mh_raster_p_f_", names[j]), mh_raster_p_f, envir = .GlobalEnv)
+  
 }

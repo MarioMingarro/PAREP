@@ -106,8 +106,10 @@ for(j in 1:length(names)){
   pa_mh_future(j)
 }
 toc()
-
-
+for(j in 1:length(names)){
+  pa_mh_present_future(j)
+}
+pa_mh_present_future
 
 puntos_todos_p <- terra::as.points(mh_raster_p)
 puntos_todos_p <- sf::st_as_sf(puntos_todos_p)
