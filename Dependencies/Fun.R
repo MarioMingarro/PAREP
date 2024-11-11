@@ -1,7 +1,6 @@
 
 
-
-
+# Load packages ----
 packages.to.use <- c("corrplot", "terra", "tictoc", "tidyverse","sf")
 
 packages.to.use <- unique(packages.to.use)

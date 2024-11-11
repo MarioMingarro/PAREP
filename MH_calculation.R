@@ -1,4 +1,4 @@
-source("Fun.R")
+source("Dependencies/Fun.R")
 
 gc(reset = T)
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/PRESENT/"
@@ -12,7 +12,7 @@ polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/PA.shp")
 # Create name object
 names <- polygon$NatName
 year <- "2070"
-model = "GFDL"
+model = "IPSL"
 
 
 # Crear las subcarpetas 'presente' y 'futuro' dentro de 'dir_result'
@@ -113,3 +113,7 @@ data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
 
 # Create name object
 names <- polygon$NatName
+
+for(j in 1:length(names)){
+  pa_mh_present_future(j)
+}
