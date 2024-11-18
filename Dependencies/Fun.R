@@ -126,8 +126,6 @@ pa_mh_present_future <- function(j) {
   # Presente
   data_p <- data_present_climatic_variables
   
-  # Mahalanobis distance calculation ----
-  
   mh_p <- data.frame(matrix(1,    
                             nrow = nrow(data_p),
                             ncol = length(names)))
