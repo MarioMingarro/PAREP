@@ -1,3 +1,15 @@
+library(caret)
+
+library(RStoolbox)
+library(stringr)
+library(corrplot)
+
+library(terra)
+library(sf)
+library(tidyverse)
+library(caret)
+library(tictoc)
+library(spdep)
 
 
 # Load packages ----
@@ -84,10 +96,40 @@ pa_mh_present <- function(j, th = .95) {
   mh_raster_p <- terra::rast(mh_p[, c(1:2, j+3)], crs = reference_system)
   names(mh_raster_p) <- colnames(mh_p[j+3])
   plot(mh_raster_p)
-  writeRaster(mh_raster_p, paste0(dir_present, "PRE_", names[j], ".tif"), overwrite = TRUE)
-  assign(paste0("mh_raster_p_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  writeRaster(mh_raster_p, paste0(dir_present, "MH_present_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("MH_present_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  
+  
+  puntos_todos_p <- terra::as.points(mh_raster_p)
+  puntos_todos_p <- sf::st_as_sf(puntos_todos_p)
+  colnames(puntos_todos_p) <- c("mh", "geometry")
+  puntos_dentro_p <- sf::st_intersection(puntos_todos_p, pol)
+  
+  th_mh_p <- quantile(na.omit(puntos_dentro_p$mh), probs = th)
+  puntos_todos_p$th <- case_when(
+    puntos_todos_p$mh > th_mh_p ~ 0,
+    puntos_todos_p$mh <= th_mh_p  ~ 1
+  )
+  puntos_todos_p$th <- as.numeric(puntos_todos_p$th)
+  
+  res <- res(mh_raster_p)
+  bbox <- ext(mh_raster_p)
+  
+  nrows <- round((bbox[4] - bbox[3]) / res[2])
+  ncols <- round((bbox[2] - bbox[1]) / res[1])
+  raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
+  puntos_vect_p <- vect(puntos_todos_p)
+  
+  raster <- terra::rasterize(puntos_vect_p, raster_template, field = "th")
+  crs(raster) <- crs(mh_raster_p)
+  plot(raster)
+  writeRaster(raster, paste0(dir_present, "TH_MH_present_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("TH_MH_present_", names[j]), mh_raster_p, envir = .GlobalEnv)
 
 }
+
+
+
 ## FUTURE----
 pa_mh_future <- function(j, th = .95) {
   data_f <- data_future_climatic_variables
@@ -114,9 +156,37 @@ pa_mh_future <- function(j, th = .95) {
   mh_raster_f <- terra::rast(mh_f[, c(1:2, j+3)], crs = reference_system)
   names(mh_raster_f) <- colnames(mh_f[j+3])
   plot(mh_raster_f)
-  writeRaster(mh_raster_f, paste0(dir_future, "FUT_", names[j], ".tif"), overwrite = TRUE)
-  assign(paste0("mh_raster_f_", names[j]), mh_raster_f, envir = .GlobalEnv)
+  writeRaster(mh_raster_f, paste0(dir_future, "MH_", model, "_", year, "_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("MH_", model, "_", year, "_", names[j]), mh_raster_f, envir = .GlobalEnv)
   
+  puntos_todos_f <- terra::as.points(mh_raster_f)
+  puntos_todos_f <- sf::st_as_sf(puntos_todos_f)
+  colnames(puntos_todos_f) <- c("mh", "geometry")
+  puntos_dentro_f <- sf::st_intersection(puntos_todos_f, pol)
+  
+  th_mh_f <- quantile(na.omit(puntos_dentro_f$mh), probs = th)
+  puntos_todos_f$th <- case_when(
+    puntos_todos_f$mh > th_mh_f ~ 0,
+    puntos_todos_f$mh <= th_mh_f  ~ 1
+  )
+  puntos_todos_f$th <- as.numeric(puntos_todos_f$th)
+  
+  res <- res(mh_raster_f)
+  bbox <- ext(mh_raster_f)
+  
+  nrows <- round((bbox[4] - bbox[3]) / res[2])
+  ncols <- round((bbox[2] - bbox[1]) / res[1])
+  raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
+  puntos_vect_f <- vect(puntos_todos_f)
+  
+  raster <- terra::rasterize(puntos_vect_f, raster_template, field = "th")
+  crs(raster) <- crs(mh_raster_f)
+  plot(raster)
+  writeRaster(raster,
+              paste0(dir_future, "TH_MH_", model, "_", year, "_", names[j], ".tif"),
+              overwrite = TRUE)
+  
+  assign(paste0("TH_MH_", model, "_", year, "_", names[j]), mh_raster_p, envir = .GlobalEnv)
 }
 
 ## PRESENT-FUTURE----
@@ -150,9 +220,34 @@ pa_mh_present_future <- function(j) {
   mh_raster_p <- terra::rast(mh_p[, c(1:2, j+3)], crs = reference_system)
   names(mh_raster_p) <- colnames(mh_p[j+3])
   plot(mh_raster_p)
-  writeRaster(mh_raster_p, paste0(dir_present, "PRE_", names[j], ".tif"), overwrite = TRUE)
-  assign(paste0("mh_raster_pf_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  writeRaster(mh_raster_p, paste0(dir_present, "MH_present_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("MH_present_", names[j]), mh_raster_p, envir = .GlobalEnv)
   
+  puntos_todos_p <- terra::as.points(mh_raster_p)
+  puntos_todos_p <- sf::st_as_sf(puntos_todos_p)
+  colnames(puntos_todos_p) <- c("mh", "geometry")
+  puntos_dentro_p <- sf::st_intersection(puntos_todos_p, pol)
+  
+  th_mh_p <- quantile(na.omit(puntos_dentro_p$mh), probs = th)
+  puntos_todos_p$th <- case_when(
+    puntos_todos_p$mh > th_mh_p ~ 0,
+    puntos_todos_p$mh <= th_mh_p  ~ 1
+  )
+  puntos_todos_p$th <- as.numeric(puntos_todos_p$th)
+  
+  res <- res(mh_raster_p)
+  bbox <- ext(mh_raster_p)
+  
+  nrows <- round((bbox[4] - bbox[3]) / res[2])
+  ncols <- round((bbox[2] - bbox[1]) / res[1])
+  raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
+  puntos_vect_p <- vect(puntos_todos_p)
+  
+  raster <- terra::rasterize(puntos_vect_p, raster_template, field = "th")
+  crs(raster) <- crs(mh_raster_p)
+  plot(raster)
+  writeRaster(raster, paste0(dir_present, "TH_MH_present", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("TH_MH_present_", names[j]), mh_raster_p, envir = .GlobalEnv)
   
   # Futuro
   data_p_f <- rbind(data_present_climatic_variables, data_future_climatic_variables)
@@ -181,9 +276,35 @@ pa_mh_present_future <- function(j) {
   names(mh_raster_p_f) <- colnames(mh_p_f[j+3])
   plot(mh_raster_p_f)
   writeRaster(mh_raster_p_f,
-              paste0(dir_future, model, "_", year, "_", names[j], ".tif"),
+              paste0(dir_future, "MH_", model, "_", year, "_", names[j], ".tif"),
               overwrite = TRUE)
-  assign(paste0("mh_raster_p_", names[j]), mh_raster_p, envir = .GlobalEnv)
-  assign(paste0("mh_raster_p_f_", names[j]), mh_raster_p_f, envir = .GlobalEnv)
+  
+  puntos_todos_f <- terra::as.points(mh_raster_p_f)
+  puntos_todos_f <- sf::st_as_sf(puntos_todos_f)
+  colnames(puntos_todos_f) <- c("mh", "geometry")
+  puntos_dentro_f <- sf::st_intersection(puntos_todos_f, pol)
+  
+  puntos_todos_f$th <- case_when(
+    puntos_todos_f$mh > th_mh_p ~ 0,
+    puntos_todos_f$mh <= th_mh_p  ~ 1
+  )
+  puntos_todos_f$th <- as.numeric(puntos_todos_f$th)
+  
+  res <- res(mh_raster_p_f)
+  bbox <- ext(mh_raster_p_f)
+  
+  nrows <- round((bbox[4] - bbox[3]) / res[2])
+  ncols <- round((bbox[2] - bbox[1]) / res[1])
+  raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
+  puntos_vect_f <- vect(puntos_todos_f)
+  
+  raster <- terra::rasterize(puntos_vect_f, raster_template, field = "th")
+  crs(raster) <- crs(mh_raster_p_f)
+  plot(raster)
+  writeRaster(raster,
+              paste0(dir_future, "TH_MH_", model, "_", year, "_", names[j], ".tif"),
+              overwrite = TRUE)
+  
+  assign(paste0("TH_MH_", model, "_", year, "_", names[j]), mh_raster_p, envir = .GlobalEnv)
   
 }
