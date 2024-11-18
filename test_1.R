@@ -1,26 +1,6 @@
-library(terra)
-library(sf)
-library(tidyverse)
-library(tictoc)
-library(corrplot)
-
-library(caret)
-
-library(RStoolbox)
-library(stringr)
-library(corrplot)
-
-library(terra)
-library(sf)
-library(tidyverse)
-library(caret)
-library(tictoc)
-library(spdep)
-
-source("Fun.R")
-
 # library(RStoolbox)
 # library(stringr)
+source("Dependencies/Fun.R")
 
 gc(reset = T)
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/PRESENT/"
@@ -29,12 +9,13 @@ dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/"
 
 study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/MURCIA.shp")
 polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/PA.shp")
-
+plot(study_area$geometry)
+plot(polygon$geometry, add = T)
 
 # Create name object
 names <- polygon$NatName
 year <- "2070"
-model = "GFDL"
+model <- "GFDL"
 
 
 # Crear las subcarpetas 'presente' y 'futuro' dentro de 'dir_result'
@@ -78,9 +59,9 @@ names(present_climatic_variables) <- c("CHELSA_bio1","CHELSA_bio10","CHELSA_bio1
 names(future_climatic_variables) <- names(present_climatic_variables)
 
 # Reference system ----
-
-reference_system <-"EPSG:4326" 
 terra::crs(present_climatic_variables)
+reference_system <-"EPSG:4326" 
+
 study_area <- st_transform(study_area, crs(reference_system))
 polygon <- st_transform(polygon, crs(reference_system))
 
@@ -137,22 +118,11 @@ data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
 names <- polygon$NatName
 
 
+tic()
 for(j in 1:length(names)){
   pa_mh_present_future(j)
 }
 toc()
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -164,9 +134,9 @@ for(j in 1:length(names)){
   pa_mh_future(j)
 }
 toc()
-for(j in 1:length(names)){
-  pa_mh_present_future(j)
-}
+
+
+
 pa_mh_present_future
 
 puntos_todos_p <- terra::as.points(mh_raster_p)
