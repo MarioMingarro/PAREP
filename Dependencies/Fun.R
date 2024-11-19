@@ -389,7 +389,108 @@ pa_mh_present <- function(j, th = .95) {
   puntos_todos_p$dist[puntos_todos_p$dist == 0] <- NA
   puntos_todos_p <- cbind(puntos_todos_p, st_coordinates(puntos_todos_p))
   write.csv2(puntos_todos_p, "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/GEODA/puntos_todos_p.csv" )
-  #####################################################
+  ###############################################################################################################################################################
+  
+  #WILCOXON
+  library(sf)
+  library(dplyr)
+  library(ggplot2)
+  
+  # Supongamos que tienes tus datos en un objeto sf llamado `puntos_todos_p` 
+  # y los puntos dentro del polígono en `puntos_dentro_p`.
+  
+  # Extraer los valores de Mahalanobis para los puntos dentro del polígono
+  valores_dentro <- puntos_dentro_p$mh
+  
+  # Crear rangos de distancia espacial
+  rango_breaks <- seq(0, max(puntos_todos_p$dist, na.rm = TRUE), by = 0.5)
+  puntos_todos_p <- puntos_todos_p %>%
+    mutate(rango_distancia = cut(dist, breaks = rango_breaks, include.lowest = TRUE))
+  
+  # Realizar la prueba de Wilcoxon para cada rango de distancia
+  resultados <- puntos_todos_p %>%
+    filter(!is.na(rango_distancia)) %>%
+    group_by(rango_distancia) %>%
+    summarise(
+      p_value = wilcox.test(mh, valores_dentro)$p.value
+    )
+  
+  # Agregar la información del centro de cada rango para el gráfico
+  resultados <- resultados %>%
+    mutate(centro_rango = as.numeric(gsub("[^0-9]+", "", sub(",.*", "", as.character(rango_distancia)))))
+  
+  # Graficar los resultados
+  ggplot(resultados, aes(x = centro_rango, y = p_value)) +
+    geom_line(color = "blue") +
+    geom_point(size = 3, color = "red") +
+    geom_hline(yintercept = 0.05, linetype = "dashed", color = "black") + # Línea para p = 0.05
+    labs(
+      x = "Centro del rango de distancia (km)",
+      y = "Significancia (p-valor)",
+      title = "Significancia de la prueba de Wilcoxon en función de la distancia"
+    ) +
+    theme_minimal()
+  
+  ## SORENSEN
+  
+  # Instalar y cargar los paquetes necesarios
+  install.packages("raster")
+  install.packages("ggplot2")
+  library(raster)
+  library(ggplot2)
+  
+  
+  
+  
+  # Paso 3: Definir dos subconjuntos de celdas (por ejemplo, puedes tomar dos áreas distintas del raster)
+  # Convertir el raster a puntos para extraer sus coordenadas
+  puntos_raster <- terra::as.points(raster)
+  puntos_raster <- sf::st_as_sf(puntos_raster)
+  colnames(puntos_raster) <- c("mh", "geometry")
+  
+  # Seleccionar las celdas que están dentro del polígono
+  celdas_A <- puntos_dentro_p$mh
+  
+  # Paso 4: Calcular el índice de Sorensen iterativamente por distancia
+  # Definir una función para calcular el índice de Sorensen
+  calcular_sorensen <- function(celdas_A, celdas_B) {
+    interseccion <- length(intersect(rownames(celdas_A), rownames(celdas_B)))  # Número de celdas comunes
+    indice_sorensen <- (2 * interseccion) / (nrow(celdas_A) + nrow(celdas_B))  # Índice de Sorensen
+    return(indice_sorensen)
+  }
+  
+  # Paso 5: Calcular las distancias entre las celdas de A y otras celdas
+  # Calcular distancias entre las celdas de A y todas las demás celdas
+  distancias <- puntos_todos_p$dist
+  
+  # Paso 6: Iterar sobre las distancias y calcular el índice de Sorensen para cada distancia
+  # Aquí agrupamos las distancias en intervalos y calculamos el índice de Sorensen para cada intervalo
+  
+  # Crear un dataframe para guardar los resultados
+  resultados <- data.frame(distancia = numeric(), indice_sorensen = numeric())
+  
+  # Establecer los rangos de distancia (por ejemplo, de 0 a 100 metros, con un intervalo de 10 metros)
+  rangos_distancia <- seq(0, max(distancias), by = 10)
+  
+  # Iterar sobre cada rango de distancia
+  for (rango in rangos_distancia) {
+    # Seleccionar las celdas dentro del rango de distancia
+    celdas_en_rango <- puntos_raster[distancias <= rango, ]
+    
+    # Calcular el índice de Sorensen entre las celdas de A y las celdas en el rango
+    indice <- calcular_sorensen(celdas_A, celdas_en_rango)
+    
+    # Guardar el resultado
+    resultados <- rbind(resultados, data.frame(distancia = rango, indice_sorensen = indice))
+  }
+  
+  # Paso 7: Graficar la variación del índice de Sorensen con la distancia
+  ggplot(resultados, aes(x = distancia, y = indice_sorensen)) +
+    geom_line() +
+    labs(title = "Variación del índice de Sorensen con la distancia",
+         x = "Distancia Euclidiana", y = "Índice de Sorensen")
+  
+  ###############################################################################################################################################################
   library(ncf)
   coords <- st_coordinates(puntos_todos_p)  # Extrae coordenadas (X, Y)
   variable <- puntos_todos_p$tu_variable    # Variable numérica de interés
