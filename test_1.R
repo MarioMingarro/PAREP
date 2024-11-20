@@ -4,10 +4,10 @@ source("Dependencies/Fun.R")
 gc(reset = T)
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/PRESENT/"
 dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/FUTURO/IPSL/"
-dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/"
+dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/TEST_PEDRIZA/"
 
-study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/MURCIA.shp")
-polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/PA.shp")
+study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/Peninsula_Iberica_89.shp")
+polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/TEST_PEDRIZA/KBA_pedriza.shp")
 plot(study_area$geometry)
 plot(polygon$geometry, add = T)
 

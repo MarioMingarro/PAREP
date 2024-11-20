@@ -312,11 +312,205 @@ pa_mh_present_future <- function(j, th = .95) {
 
 
 
+## PRESENT-FUTURE 2----
+# Función para procesar los datos de la serie presente
+pa_mh_present_future <- function(j, th = .95) {
+  
+  # Presente
+  data_p <- data_present_climatic_variables
+  
+  mh_p <- data.frame(matrix(1,    
+                            nrow = nrow(data_p),
+                            ncol = length(names)))
+  
+  names(mh_p) <- names
+  
+  for (i in 1:nrow(polygon)){
+    pol <- polygon[i,]
+    raster_polygon <- terra::mask(terra::crop(present_climatic_variables, pol), pol)
+    data_polygon <- terra::as.data.frame(raster_polygon, xy = TRUE)
+    data_polygon <- na.omit(data_polygon)
+    
+    mh <- mahalanobis(data_p[,4:length(data_p)], 
+                      colMeans(data_polygon[,3:length(data_polygon)]), 
+                      cov(data_p[,4:length(data_p)]), 
+                      inverted = F)
+    
+    mh_p[,i] <- mh
+  }
+  
+  mh_p <- cbind(data_p[,c(1:3)], mh_p)
+  mh_raster_p <- terra::rast(mh_p[, c(1:2, j+3)], crs = reference_system)
+  names(mh_raster_p) <- colnames(mh_p[j+3])
+  plot(mh_raster_p)
+  writeRaster(mh_raster_p, paste0(dir_present, "MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  
+  puntos_todos_p <- terra::as.points(mh_raster_p)
+  puntos_todos_p <- sf::st_as_sf(puntos_todos_p)
+  colnames(puntos_todos_p) <- c("mh", "geometry")
+  puntos_dentro_p <- sf::st_intersection(puntos_todos_p, pol)
+  
+  th_mh_p <- quantile(na.omit(puntos_dentro_p$mh), probs = th)
+  
+  puntos_todos_p$th <- case_when(
+    puntos_todos_p$mh > th_mh_p ~ 0,
+    puntos_todos_p$mh <= th_mh_p  ~ 1
+  )
+  puntos_todos_p$th <- as.numeric(puntos_todos_p$th)
+  
+  res <- res(mh_raster_p)
+  bbox <- ext(mh_raster_p)
+  
+  nrows <- round((bbox[4] - bbox[3]) / res[2])
+  ncols <- round((bbox[2] - bbox[1]) / res[1])
+  raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
+  puntos_vect_p <- vect(puntos_todos_p)
+  
+  raster <- terra::rasterize(puntos_vect_p, raster_template, field = "th")
+  crs(raster) <- crs(mh_raster_p)
+  plot(raster)
+  writeRaster(raster, paste0(dir_present, "TH_MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("TH_MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  
+  # Futuro
+  data_p_f <- rbind(data_present_climatic_variables, data_future_climatic_variables)
+  
+  mh_p_f <- data.frame(matrix(1,    
+                              nrow = nrow(data_p_f),
+                              ncol = length(names)))
+  
+  names(mh_p_f) <- names
+  
+  for (i in 1:nrow(polygon)) {
+    pol <- polygon[i, ]
+    raster_polygon <- terra::mask(terra::crop(present_climatic_variables, pol), pol)
+    data_polygon <- terra::as.data.frame(raster_polygon, xy = TRUE)
+    data_polygon <- na.omit(data_polygon)
+    
+    mh <- mahalanobis(data_p_f[, 4:length(data_p_f)], colMeans(data_polygon[, 3:length(data_polygon)]), cov(data_p_f[, 4:length(data_p_f)]), inverted = F)
+    
+    mh_p_f[, i] <- mh
+  }
+  
+  mh_p_f <- cbind(data_p_f[, c(1:3)], mh_p_f)
+  
+  mh_raster_p_f <- dplyr::filter(mh_p_f, Period == "Future")
+  mh_raster_p_f <- terra::rast(mh_raster_p_f[, c(1:2, j+3)], crs = reference_system)
+  names(mh_raster_p_f) <- colnames(mh_p_f[j+3])
+  plot(mh_raster_p_f)
+  writeRaster(mh_raster_p_f,
+              paste0(dir_future, "MH_", model, "_", year, "_", names[j], ".tif"),
+              overwrite = TRUE)
+  
+  puntos_todos_f <- terra::as.points(mh_raster_p_f)
+  puntos_todos_f <- sf::st_as_sf(puntos_todos_f)
+  colnames(puntos_todos_f) <- c("mh", "geometry")
+  puntos_dentro_f <- sf::st_intersection(puntos_todos_f, pol)
+  
+  puntos_todos_f$th <- case_when(
+    puntos_todos_f$mh > th_mh_p ~ 0,
+    puntos_todos_f$mh <= th_mh_p  ~ 1
+  )
+  puntos_todos_f$th <- as.numeric(puntos_todos_f$th)
+  
+  res <- res(mh_raster_p_f)
+  bbox <- ext(mh_raster_p_f)
+  
+  nrows <- round((bbox[4] - bbox[3]) / res[2])
+  ncols <- round((bbox[2] - bbox[1]) / res[1])
+  raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
+  puntos_vect_f <- vect(puntos_todos_f)
+  
+  raster <- terra::rasterize(puntos_vect_f, raster_template, field = "th")
+  crs(raster) <- crs(mh_raster_p_f)
+  plot(raster)
+  writeRaster(raster,
+              paste0(dir_future, "TH_MH_", model, "_", year, "_", names[j], ".tif"),
+              overwrite = TRUE)
+  
+  assign(paste0("TH_MH_", model, "_", year, "_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  
+  
+  dist <- sf::st_distance(puntos_todos_p, puntos_dentro_p)
+  
+  # Para obtener la distancia mínima por cada punto, tomamos el valor mínimo de cada fila
+  dist <- apply(dist, 1, min)
+  
+  # Agregar las distancias mínimas como un atributo a los puntos del raster
+  puntos_todos_p$dist <- round(dist/ 1000, 0)
+  puntos_todos_f$dist <- round(dist/ 1000, 0)
+  
+  
+  puntos_todos_p <- cbind(puntos_todos_p, st_coordinates(puntos_todos_p))
+  puntos_todos_f <- cbind(puntos_todos_f, st_coordinates(puntos_todos_f))
+  #write.csv2(puntos_todos_f, "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/GEODA/puntos_todos_p.csv" )
+  rango_breaks <- seq(0, max(puntos_todos_p$dist, na.rm = TRUE), by = 10)
+  
+  puntos_todos_p <- puntos_todos_p %>%
+    mutate(rango_distancia = cut(dist, breaks = rango_breaks, include.lowest = TRUE))
+  puntos_todos_f <- puntos_todos_f %>%
+    mutate(rango_distancia = cut(dist, breaks = rango_breaks, include.lowest = TRUE))
+  
+  resultados_p <- puntos_todos_p %>%
+    filter(!is.na(rango_distancia)) %>%  # Filtrar filas con rango de distancia válido
+    group_by(rango_distancia) %>%  # Agrupar por rango de distancia
+    summarise(
+      n_total = n(),  # Número total de observaciones en el rango
+      n_ceros = sum(th == 0, na.rm = TRUE),  # Número de ceros en 'th'
+      n_unos = sum(th == 1, na.rm = TRUE)  # Número de unos en 'th'
+    ) %>%
+    mutate(
+      porcentaje_ceros = (n_ceros / n_total) * 100,  # Porcentaje de ceros
+      porcentaje_unos = (n_unos / n_total) * 100  # Porcentaje de unos
+    )
+  
+  resultados_f <- puntos_todos_f %>%
+    filter(!is.na(rango_distancia)) %>%  # Filtrar filas con rango de distancia válido
+    group_by(rango_distancia) %>%  # Agrupar por rango de distancia
+    summarise(
+      n_total = n(),  # Número total de observaciones en el rango
+      n_ceros = sum(th == 0, na.rm = TRUE),  # Número de ceros en 'th'
+      n_unos = sum(th == 1, na.rm = TRUE)  # Número de unos en 'th'
+    ) %>%
+    mutate(
+      porcentaje_ceros = (n_ceros / n_total) * 100,  # Porcentaje de ceros
+      porcentaje_unos = (n_unos / n_total) * 100  # Porcentaje de unos
+    )
+  
+  
+  ggplot() +
+    geom_point(data =resultados_p, aes(x = rango_distancia, y = porcentaje_unos, color = "Present"), size = 3) +  # Puntos para los 'Unos'
+    geom_line(data =resultados_p, aes(x = rango_distancia, y = porcentaje_unos, color = "Present"), size = 1, group = 1) +  # Línea para conectar los puntos
+    geom_point(data =resultados_f, aes(x = rango_distancia, y = porcentaje_unos, color = "Future"), size = 3) +  # Puntos para los 'Unos'
+    geom_line(data =resultados_f, aes(x = rango_distancia, y = porcentaje_unos, color = "Future"), size = 1, group = 1) +
+    labs(
+      title = "Distribución de ceros y unos según el rango de distancia",
+      x = "Distancia (km)",
+      y = "Porcentaje receptoras",
+      fill = "Valores de mh",
+      color = "Valores de mh"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
 
+kk <- select(puntos_todos_p, c(X, Y, th, mh, dist))
+pp <- select(puntos_todos_f, c(X, Y, th, mh, dist))
 
-
-
-
+ss <- cbind(kk, pp)
+colnames(ss)
+modelo <- lm(ss$mh ~ ss$mh.1)
+summary(modelo)
+ggplot(ss, aes(x = mh.1, y = mh)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(
+    title = "Relación entre mh y mh.1",
+    x = "mh.1 (independiente)",
+    y = "mh (dependiente)"
+  ) +
+  theme_minimal()
 ## PRESENT ----
 # Función para procesar los datos de la serie presente
 pa_mh_present <- function(j, th = .95) {
@@ -386,50 +580,46 @@ pa_mh_present <- function(j, th = .95) {
   
   # Convertir las distancias a kilómetros y redondear
   puntos_todos_p$dist <- round(puntos_todos_p$dist / 1000, 0)
-  puntos_todos_p$dist[puntos_todos_p$dist == 0] <- NA
+  puntos_todos_p$dist_na <- puntos_todos_p$dist 
+  puntos_todos_p$dist_na[puntos_todos_p$dist_na == 0] <- NA
   puntos_todos_p <- cbind(puntos_todos_p, st_coordinates(puntos_todos_p))
   write.csv2(puntos_todos_p, "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/GEODA/puntos_todos_p.csv" )
-  ###############################################################################################################################################################
-  
-  #WILCOXON
-  library(sf)
-  library(dplyr)
-  library(ggplot2)
-  
-  # Supongamos que tienes tus datos en un objeto sf llamado `puntos_todos_p` 
-  # y los puntos dentro del polígono en `puntos_dentro_p`.
-  
-  # Extraer los valores de Mahalanobis para los puntos dentro del polígono
-  valores_dentro <- puntos_dentro_p$mh
-  
-  # Crear rangos de distancia espacial
-  rango_breaks <- seq(0, max(puntos_todos_p$dist, na.rm = TRUE), by = 0.5)
+  rango_breaks <- seq(0, max(puntos_todos_p$dist, na.rm = TRUE), by = 10)
   puntos_todos_p <- puntos_todos_p %>%
     mutate(rango_distancia = cut(dist, breaks = rango_breaks, include.lowest = TRUE))
   
-  # Realizar la prueba de Wilcoxon para cada rango de distancia
   resultados <- puntos_todos_p %>%
-    filter(!is.na(rango_distancia)) %>%
-    group_by(rango_distancia) %>%
+    filter(!is.na(rango_distancia)) %>%  # Filtrar filas con rango de distancia válido
+    group_by(rango_distancia) %>%  # Agrupar por rango de distancia
     summarise(
-      p_value = wilcox.test(mh, valores_dentro)$p.value
+      n_total = n(),  # Número total de observaciones en el rango
+      n_ceros = sum(th == 0, na.rm = TRUE),  # Número de ceros en 'th'
+      n_unos = sum(th == 1, na.rm = TRUE)  # Número de unos en 'th'
+    ) %>%
+    mutate(
+      porcentaje_ceros = (n_ceros / n_total) * 100,  # Porcentaje de ceros
+      porcentaje_unos = (n_unos / n_total) * 100  # Porcentaje de unos
     )
   
-  # Agregar la información del centro de cada rango para el gráfico
-  resultados <- resultados %>%
-    mutate(centro_rango = as.numeric(gsub("[^0-9]+", "", sub(",.*", "", as.character(rango_distancia)))))
   
-  # Graficar los resultados
-  ggplot(resultados, aes(x = centro_rango, y = p_value)) +
-    geom_line(color = "blue") +
-    geom_point(size = 3, color = "red") +
-    geom_hline(yintercept = 0.05, linetype = "dashed", color = "black") + # Línea para p = 0.05
+  ggplot(resultados, aes(x = rango_distancia)) +
+    geom_point(aes(y = porcentaje_unos, color = "Unos"), size = 3) +  # Puntos para los 'Unos'
+    geom_line(aes(y = porcentaje_unos, color = "Unos"), size = 1, group = 1) +  # Línea para conectar los puntos
     labs(
-      x = "Centro del rango de distancia (km)",
-      y = "Significancia (p-valor)",
-      title = "Significancia de la prueba de Wilcoxon en función de la distancia"
+      title = "Distribución de ceros y unos según el rango de distancia",
+      x = "Rango de distancia",
+      y = "Porcentaje",
+      fill = "Valores de mh",
+      color = "Valores de mh"
     ) +
-    theme_minimal()
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  }
+  ###############################################################################################################################################################
+  
+  
+pa_mh_present(j)
+  
   
   ## SORENSEN
   
