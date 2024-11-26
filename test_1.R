@@ -4,10 +4,10 @@ source("Dependencies/Fun.R")
 gc(reset = T)
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/PRESENT/"
 dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/FUTURO/IPSL/"
-dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/"
+dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD\TEST_PNAC/"
 
-study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/Murcia.shp")
-polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/PAS.shp")
+study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/Peninsula_Iberica_89.shp")
+polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/national_parks.shp")
 plot(study_area$geometry)
 plot(polygon$geometry, add = T)
 
@@ -22,6 +22,7 @@ dir_present <- paste0(dir_result, "Present/")
 dir_fut <- paste0(dir_result, "Future/")
 dir_futu <- paste0(dir_fut, year,"/")
 dir_future <- paste0(dir_futu, model,"/")
+dir_charts <- paste0(dir_result, "Charts/")
 
 # Crear las carpetas si no existen
 if (!dir.exists(dir_result)) {
@@ -41,6 +42,9 @@ if (!dir.exists(dir_futu)) {
 
 if (!dir.exists(dir_future)) {
   dir.create(dir_future)
+}
+if (!dir.exists(dir_charts)) {
+  dir.create(dir_charts)
 }
 
 # CLIMATE ----

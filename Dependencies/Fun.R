@@ -13,7 +13,7 @@ library(spdep)
 
 
 # Load packages ----
-packages.to.use <- c("corrplot", "terra", "tictoc", "tidyverse","sf")
+packages.to.use <- c("corrplot", "terra", "tictoc", "tidyverse","sf", "pracma")
 
 packages.to.use <- unique(packages.to.use)
 
@@ -436,101 +436,85 @@ pa_mh_present_future2 <- function(j, th = .95) {
     filter(!is.na(dist)) %>%  # Filtrar filas con rango de distancia válido
     group_by(dist) %>%  # Agrupar por rango de distancia
     summarise(
-      n_total = n(),  # Número total de observaciones en el rango
-      n_ceros = sum(th == 0, na.rm = TRUE),  # Número de ceros en 'th'
-      n_unos = sum(th == 1, na.rm = TRUE)  # Número de unos en 'th'
+      n_total_p = n(),  # Número total de observaciones en el rango
+      n_ceros_p = sum(th == 0, na.rm = TRUE),  # Número de ceros en 'th'
+      n_unos_p = sum(th == 1, na.rm = TRUE)  # Número de unos en 'th'
     ) %>%
     mutate(
-      porcentaje_ceros = (n_ceros / n_total) * 100,  # Porcentaje de ceros
-      porcentaje_unos = (n_unos / n_total) * 100  # Porcentaje de unos
+      porcentaje_ceros_p = (n_ceros_p / n_total_p) * 100,  # Porcentaje de ceros
+      porcentaje_unos_p = (n_unos_p / n_total_p) * 100  # Porcentaje de unos
     )
   
   resultados_f <- puntos_todos_f %>%
     filter(!is.na(dist)) %>%  # Filtrar filas con rango de distancia válido
     group_by(dist) %>%  # Agrupar por rango de distancia
     summarise(
-      n_total = n(),  # Número total de observaciones en el rango
-      n_ceros = sum(th == 0, na.rm = TRUE),  # Número de ceros en 'th'
-      n_unos = sum(th == 1, na.rm = TRUE)  # Número de unos en 'th'
+      n_total_f = n(),  # Número total de observaciones en el rango
+      n_ceros_f = sum(th == 0, na.rm = TRUE),  # Número de ceros en 'th'
+      n_unos_f = sum(th == 1, na.rm = TRUE)  # Número de unos en 'th'
     ) %>%
     mutate(
-      porcentaje_ceros = (n_ceros / n_total) * 100,  # Porcentaje de ceros
-      porcentaje_unos = (n_unos / n_total) * 100  # Porcentaje de unos
+      porcentaje_ceros_f = (n_ceros_f / n_total_f) * 100,  # Porcentaje de ceros
+      porcentaje_unos_f = (n_unos_f / n_total_f) * 100  # Porcentaje de unos
     )
   
-  
-  # Calcular el área bajo la curva acumulada usando la regla del trapecio
-  calc_auc_acumulado <- function(x, y) {
-    auc_acum <- cumsum(diff(x) * (head(y, -1) + tail(y, -1)) / 2)
-    return(c(0, auc_acum))  # Añadimos un 0 al inicio para comenzar desde 0
-  }
   
   resultados_p_df <- st_drop_geometry(resultados_p)  # Elimina la geometría
   resultados_f_df <- st_drop_geometry(resultados_f)
   
   # Unir los datos y asegurarnos que las columnas sean correctas
   resultados_comb <- resultados_p_df %>%
-    rename(presente = porcentaje_unos) %>%
     inner_join(
-      resultados_f_df %>% rename(futuro = porcentaje_unos),
+      resultados_f_df,
       by = "dist"
     )
-  
-  # Asegurarnos de que no haya valores NA en las columnas clave
-  resultados_comb <- resultados_comb %>%
-    filter(!is.na(presente) & !is.na(futuro))
-  
-  # Calcular la diferencia acumulada de AUC
   resultados_comb <- resultados_comb %>%
     mutate(
-      auc_presente_acum = calc_auc_acumulado(dist, presente),
-      auc_futuro_acum = calc_auc_acumulado(dist, futuro),
-      auc_dif_acum = abs(auc_presente_acum - auc_futuro_acum)
+      n_unos_p_acum = cumsum(n_unos_p),  # Acumulación de n_unos_p
+      n_unos_f_acum = cumsum(n_unos_f)   # Acumulación de n_unos_f
     )
+  max_n_unos_p_acum <- max(resultados_comb$n_unos_p_acum, na.rm = TRUE)
+  factor_escala <- max_n_unos_p_acum / 100
   
-  # Calculamos el factor de escala para auc_dif_acum
-  max_auc <- max(resultados_comb$auc_dif_acum, na.rm = TRUE)
-  max_porcentaje <- max(resultados_comb$presente, na.rm = TRUE)
+  area_presente <- round(trapz(resultados_comb$dist, resultados_comb$porcentaje_unos_p/100), 2)
+  area_futuro <- round(trapz(resultados_comb$dist, resultados_comb$porcentaje_unos_f/100),2)
+  area_compartida <- round(trapz(resultados_comb$dist, pmin(resultados_comb$porcentaje_unos_p/100, resultados_comb$porcentaje_unos_f/100)),2)
   
-  # El factor de escala para el eje derecho (densidad)
-  factor_escala <- max_auc / max_porcentaje
-  
-  # Graficar con los dos ejes
+    # Graficar con los dos ejes
   p <- ggplot() +
     # Área para los valores "Present"
-    geom_area(data = resultados_comb, aes(x = dist, y = presente, fill = "Present"), alpha = 0.5, size = 3) +
+    geom_area(data = resultados_comb, aes(x = dist, y = porcentaje_unos_p, fill = "Present"), alpha = 0.5, size = 3) +
     # Área para los valores "Future"
-    geom_area(data = resultados_comb, aes(x = dist, y = futuro, fill = "Future"), alpha = 0.5, size = 3) +
-    # Línea para la diferencia acumulada de densidad (AUC), escalada
-    geom_line(data = resultados_comb, aes(x = dist, y = auc_dif_acum / factor_escala, group = 1), color = "blue", size = 1) + 
+    geom_area(data = resultados_comb, aes(x = dist, y = porcentaje_unos_f, fill = "Future"), alpha = 0.5, size = 3) +
+    # Línea para n_unos_p acumulado
+    geom_line(data = resultados_comb, aes(x = dist, y = n_unos_p_acum / factor_escala, group = 1), color = "aquamarine4", size = 1) + 
+    # Línea para n_unos_f acumulado
+    geom_line(data = resultados_comb, aes(x = dist, y = n_unos_f_acum / factor_escala, group = 2), color = "coral3", size = 1) + 
     # Títulos y etiquetas
     labs(
-      title = "% de areas receptoras acorde a distancia y diferencia acumulada entre escenarios",
+      title = names[j],
+      subtitle = paste0(year,"_", model),
       x = "Distancia (km)",
       y = "Porcentaje receptoras",
       fill = "Escenario",
-      color = "Escenario"
+      color = "Escenario",
+      caption = paste0("AUC Presente = ", area_presente, "   AUC Futuro = ", area_futuro, "   AUC Compartida = ", area_compartida)
     ) +
     # Estilo minimalista
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    scale_fill_manual(values = c("Present" = "green", "Future" = "red")) +
+    scale_fill_manual(values = c("Present" = "aquamarine3", "Future" = "coral3")) +
     # Segunda escala en el eje y derecho para la diferencia acumulada (AUC)
     scale_y_continuous(
       name = "Porcentaje receptoras",  # Eje izquierdo
       limits = c(0, 100),  # Aseguramos que el rango en Y izquierdo esté de 0 a 100
       sec.axis = sec_axis(
         trans = ~ . * factor_escala,  # Escala de transformación ajustada para el eje derecho
-        name = "Diferencia Acumulada",  # Eje derecho
+        name = "Celdas receptoras acumuladas",  # Eje derecho
         labels = scales::comma
       )  # Eje derecho con la transformación aplicada
     )
+  ggsave(filename = paste0(dir_charts, names[j], "_scenarios_difference.jpeg"), plot = p, width = 10, height = 8)
   print(p)
   
-}
-
-
-
-
-
-
+}  
