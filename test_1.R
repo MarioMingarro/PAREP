@@ -2,9 +2,13 @@
 source("Dependencies/Fun.R")
 
 gc(reset = T)
+
+
+tic()
+
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/PRESENT/"
 dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/FUTURO/IPSL/"
-dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD\TEST_PNAC/"
+dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/"
 
 study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/Peninsula_Iberica_89.shp")
 polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/national_parks.shp")
@@ -12,7 +16,7 @@ plot(study_area$geometry)
 plot(polygon$geometry, add = T)
 
 # Create name object
-names <- polygon$NatName
+names <- polygon$NAME
 year <- "2070"
 model <- "GFDL"
 
@@ -118,16 +122,37 @@ data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
 
 
 # Create name object
-names <- polygon$NatName
+names <- polygon$NAME
 
+library(foreach)
+library(doParallel)
 
-tic()
+# Configurar paralelismo (ajustar según el número de núcleos disponibles)
+num_cores <- parallel::detectCores() - 1
+cl <- makeCluster(num_cores)
+registerDoParallel(cl)
+
+# Implementación con foreach y tryCatch
+results <- foreach(j = 1:length(names), .packages = c("corrplot", "terra", "tictoc", "tidyverse","sf", "pracma")) %dopar% {
+  tryCatch({
+    # Llamar a la función pa_mh_present_future2 con cada índice j
+    result <- pa_mh_present_future2(j)
+    result  # Devuelve el resultado si no hay error
+  }, error = function(e) {
+    # Manejar errores aquí
+    message(paste("Error en la iteración", j, ":", e$message))
+    return(NULL)  # Devuelve NULL en caso de error
+  })
+}
+
+# Detener el cluster paralelo
+stopCluster(cl)
+
+toc()
+
 for(j in 1:length(names)){
   pa_mh_present_future2(j)
 }
-toc()
-
-
 
 tic()
 for(j in 1:length(names)){
