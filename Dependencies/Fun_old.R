@@ -125,7 +125,7 @@ pa_mh_present <- function(j, th = .95) {
   plot(raster)
   writeRaster(raster, paste0(dir_present, "TH_MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
   assign(paste0("TH_MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
-
+  
 }
 
 
@@ -191,7 +191,120 @@ pa_mh_future <- function(j, th = .95) {
 
 ## PRESENT-FUTURE----
 # Función para procesar los datos de la serie presente
-pa_mh_present_future <- function(j, th = .9) {
+pa_mh_present_future <- function(j, th = .95) {
+  
+  # Presente
+  data_p <- data_present_climatic_variables
+  
+  mh_p <- data.frame(matrix(1,    
+                            nrow = nrow(data_p),
+                            ncol = length(names)))
+  
+  names(mh_p) <- names
+  
+  
+  pol <- polygon[j, ]
+  raster_polygon <- terra::mask(terra::crop(present_climatic_variables, pol), pol)
+  data_polygon <- terra::as.data.frame(raster_polygon, xy = TRUE)
+  data_polygon <- na.omit(data_polygon)
+  
+  mh <- mahalanobis(data_p[, 4:length(data_p)], colMeans(data_polygon[, 3:length(data_polygon)]), cov(data_p[, 4:length(data_p)]), inverted = F)
+  
+  mh_p <- cbind(data_p[,c(1:3)], mh)
+  mh_raster_p <- terra::rast(mh_p[, c(1:2, j+3)], crs = reference_system)
+  names(mh_raster_p) <- colnames(mh_p[j+3])
+  plot(mh_raster_p, main = paste0( "Present mh distance of ", names[j]))
+  writeRaster(mh_raster_p, paste0(dir_present, "MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  
+  puntos_todos_p <- terra::as.points(mh_raster_p)
+  puntos_todos_p <- sf::st_as_sf(puntos_todos_p)
+  colnames(puntos_todos_p) <- c("mh", "geometry")
+  puntos_dentro_p <- sf::st_intersection(puntos_todos_p, pol)
+  
+  th_mh_p <- quantile(na.omit(puntos_dentro_p$mh), probs = th)
+  
+  puntos_todos_p$th <- case_when(
+    puntos_todos_p$mh > th_mh_p ~ 0,
+    puntos_todos_p$mh <= th_mh_p  ~ 1
+  )
+  puntos_todos_p$th <- as.numeric(puntos_todos_p$th)
+  
+  res <- res(mh_raster_p)
+  bbox <- ext(mh_raster_p)
+  
+  nrows <- round((bbox[4] - bbox[3]) / res[2])
+  ncols <- round((bbox[2] - bbox[1]) / res[1])
+  raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
+  puntos_vect_p <- vect(puntos_todos_p)
+  
+  raster <- terra::rasterize(puntos_vect_p, raster_template, field = "th")
+  crs(raster) <- crs(mh_raster_p)
+  plot(raster, main = paste0("Present mh distance threshold of ", names[j]))
+  writeRaster(raster, paste0(dir_present, "TH_MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
+  assign(paste0("TH_MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  
+  # Futuro
+  data_p_f <- rbind(data_present_climatic_variables, data_future_climatic_variables)
+  
+  mh_p_f <- data.frame(matrix(1,    
+                              nrow = nrow(data_p_f),
+                              ncol = length(names)))
+  
+  names(mh_p_f) <- names
+  
+  raster_polygon <- terra::mask(terra::crop(present_climatic_variables, pol), pol)
+  data_polygon <- terra::as.data.frame(raster_polygon, xy = TRUE)
+  data_polygon <- na.omit(data_polygon)
+  
+  mh <- mahalanobis(data_p_f[, 4:length(data_p_f)], colMeans(data_polygon[, 3:length(data_polygon)]), cov(data_p_f[, 4:length(data_p_f)]), inverted = F)
+  
+  
+  mh_p_f <- cbind(data_p_f[, c(1:3)], mh)
+  
+  mh_raster_p_f <- dplyr::filter(mh_p_f, Period == "Future")
+  mh_raster_p_f <- terra::rast(mh_raster_p_f[, c(1:2, j+3)], crs = reference_system)
+  names(mh_raster_p_f) <- colnames(mh_p_f[j+3])
+  plot(mh_raster_p_f, main = paste0("Present mh distance of ", names[j]))
+  writeRaster(mh_raster_p_f,
+              paste0(dir_future, "MH_", model, "_", year, "_", names[j], ".tif"),
+              overwrite = TRUE)
+  
+  puntos_todos_f <- terra::as.points(mh_raster_p_f)
+  puntos_todos_f <- sf::st_as_sf(puntos_todos_f)
+  colnames(puntos_todos_f) <- c("mh", "geometry")
+  puntos_dentro_f <- sf::st_intersection(puntos_todos_f, pol)
+  
+  puntos_todos_f$th <- case_when(
+    puntos_todos_f$mh > th_mh_p ~ 0,
+    puntos_todos_f$mh <= th_mh_p  ~ 1
+  )
+  puntos_todos_f$th <- as.numeric(puntos_todos_f$th)
+  
+  res <- res(mh_raster_p_f)
+  bbox <- ext(mh_raster_p_f)
+  
+  nrows <- round((bbox[4] - bbox[3]) / res[2])
+  ncols <- round((bbox[2] - bbox[1]) / res[1])
+  raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
+  puntos_vect_f <- vect(puntos_todos_f)
+  
+  raster <- terra::rasterize(puntos_vect_f, raster_template, field = "th")
+  crs(raster) <- crs(mh_raster_p_f)
+  plot(raster)
+  writeRaster(raster,
+              paste0(dir_future, "TH_MH_", model, "_", year, "_", names[j], ".tif"),
+              overwrite = TRUE)
+  
+  assign(paste0("TH_MH_", model, "_", year, "_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  
+}
+
+
+
+## PRESENT-FUTURE 2----
+# Función para procesar los datos de la serie presente
+pa_mh_present_future2 <- function(j, th = .9) {
   color_map <- c("0" = "coral3", "1" = "aquamarine3")
   
   
@@ -388,7 +501,7 @@ pa_mh_present_future <- function(j, th = .9) {
   area_futuro <- round(trapz(resultados_comb$dist, resultados_comb$porcentaje_unos_f/100),2)
   area_compartida <- round(trapz(resultados_comb$dist, pmin(resultados_comb$porcentaje_unos_p/100, resultados_comb$porcentaje_unos_f/100)),2)
   
-    # Graficar con los dos ejes
+  # Graficar con los dos ejes
   p <- ggplot() +
     # Área para los valores "Present"
     geom_area(data = resultados_comb, aes(x = dist, y = porcentaje_unos_p, fill = "Present"), alpha = 0.5, size = 3) +

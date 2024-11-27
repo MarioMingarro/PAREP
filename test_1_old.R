@@ -7,19 +7,19 @@ tic()
 
 
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA_OLD/PRESENTE/"
-dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA_OLD/RCP45_2050/"
-dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC_ANTIGUO/"
+dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA_OLD/RCP85_2070/"
+dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC_ANTIGUO_2/"
 #OLD/TEST_PNAC/"
 #Peninsula_Iberica_89.shp"
 #national_parks.shp"
 study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/Peninsula_Iberica_89.shp")
-polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/national_parks_4.shp")
+polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/national_parks_2.shp")
 
 
 # Create name object
 
-year <- "2050"
-model <- "RCP45"
+year <- "2070"
+model <- "RCP85"
 
 names <- polygon$NAME
 
@@ -102,13 +102,13 @@ data_future_climatic_variables  <- dplyr::mutate(data_future_climatic_variables,
 
 # Join two dataset
 colnames(data_future_climatic_variables) <- colnames(data_present_climatic_variables)
-data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
+#data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
 
 
 
 
 tic()
 for(j in 1:length(names)){
-  pa_mh_present_future2(j, th= 1)
+  pa_mh_present_future(j, th= .95)
 }
 toc()
