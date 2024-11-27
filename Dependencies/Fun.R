@@ -305,6 +305,8 @@ pa_mh_present_future <- function(j, th = .95) {
 ## PRESENT-FUTURE 2----
 # Función para procesar los datos de la serie presente
 pa_mh_present_future2 <- function(j, th = .95) {
+  color_map <- c("0" = "coral3", "1" = "aquamarine3")
+  
   
   # Presente
   data_p <- data_present_climatic_variables
@@ -353,7 +355,7 @@ pa_mh_present_future2 <- function(j, th = .95) {
   
   raster <- terra::rasterize(puntos_vect_p, raster_template, field = "th")
   crs(raster) <- crs(mh_raster_p)
-  plot(raster, main = paste0("Present mh distance threshold of ", names[j]))
+  plot(raster, main = paste0("Present mh distance threshold of ", names[j]), col = color_map[as.character(sort(unique(values(raster))))])
   writeRaster(raster, paste0(dir_present, "TH_MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
   assign(paste0("TH_MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
   
@@ -388,9 +390,20 @@ pa_mh_present_future2 <- function(j, th = .95) {
   colnames(puntos_todos_f) <- c("mh", "geometry")
   puntos_dentro_f <- sf::st_intersection(puntos_todos_f, pol)
   
+  mh_raster_p_f_p <- dplyr::filter(mh_p_f, Period == "Present")
+  mh_raster_p_f_p <- terra::rast(mh_raster_p_f_p[, c(1:2, 4)], crs = reference_system)
+  names(mh_raster_p_f_p) <- colnames(mh_p_f_p[4])
+  
+  puntos_todos_f_p <- terra::as.points(mh_raster_p_f_p)
+  puntos_todos_f_p <- sf::st_as_sf(puntos_todos_f_p)
+  colnames(puntos_todos_f_p) <- c("mh", "geometry")
+  puntos_dentro_f_p <- sf::st_intersection(puntos_todos_f_p, pol)
+  
+  th_mh_p_f <- quantile(na.omit(puntos_dentro_f_p$mh), probs = th)
+  
   puntos_todos_f$th <- case_when(
-    puntos_todos_f$mh > th_mh_p ~ 0,
-    puntos_todos_f$mh <= th_mh_p  ~ 1
+    puntos_todos_f$mh > th_mh_p_f ~ 0,
+    puntos_todos_f$mh <= th_mh_p_f  ~ 1
   )
   puntos_todos_f$th <- as.numeric(puntos_todos_f$th)
   
@@ -404,7 +417,7 @@ pa_mh_present_future2 <- function(j, th = .95) {
   
   raster <- terra::rasterize(puntos_vect_f, raster_template, field = "th")
   crs(raster) <- crs(mh_raster_p_f)
-  plot(raster, main = paste0(year," ",model," mh distance threshold of ", names[j]))
+  plot(raster, main = paste0(year," ",model," mh distance threshold of ", names[j]), col = color_map[as.character(sort(unique(values(raster))))])
   writeRaster(raster,
               paste0(dir_future, "TH_MH_", model, "_", year, "_", names[j], ".tif"),
               overwrite = TRUE)
@@ -419,6 +432,10 @@ pa_mh_present_future2 <- function(j, th = .95) {
   
   # Agregar las distancias mínimas como un atributo a los puntos del raster
   puntos_todos_p$dist <- round(dist/ 1000, 0)
+  dist <- sf::st_distance(puntos_todos_f, pol)
+  
+  # Para obtener la distancia mínima por cada punto, tomamos el valor mínimo de cada fila
+  dist <- apply(dist, 1, min)
   puntos_todos_f$dist <- round(dist/ 1000, 0)
   
   
@@ -490,15 +507,29 @@ pa_mh_present_future2 <- function(j, th = .95) {
     geom_line(data = resultados_comb, aes(x = dist, y = n_unos_p_acum / factor_escala, group = 1), color = "aquamarine4", size = 1) + 
     # Línea para n_unos_f acumulado
     geom_line(data = resultados_comb, aes(x = dist, y = n_unos_f_acum / factor_escala, group = 2), color = "coral3", size = 1) + 
+    # Línea horizontal escalada al eje derecho
+    geom_segment(
+      aes(
+        x = min(resultados_comb$dist),  # Inicio del segmento (mínima distancia)
+        xend = max(resultados_comb$dist), # Fin del segmento (máxima distancia)
+        y = nrow(puntos_dentro_p) / factor_escala, # Escalado para eje derecho
+        yend = nrow(puntos_dentro_p) / factor_escala # Escalado para eje derecho
+      ),
+      color = "black", 
+      linetype = "dashed",
+      size = 1
+    ) +
     # Títulos y etiquetas
     labs(
       title = names[j],
-      subtitle = paste0(year,"_", model),
+      subtitle = paste0(year, "_", model),
       x = "Distancia (km)",
       y = "Porcentaje receptoras",
       fill = "Escenario",
       color = "Escenario",
-      caption = paste0("AUC Presente = ", area_presente, "   AUC Futuro = ", area_futuro, "   AUC Compartida = ", area_compartida)
+      caption = paste0("AUC Presente = ", area_presente, 
+                       "   AUC Futuro = ", area_futuro, 
+                       "   AUC Compartida = ", area_compartida)
     ) +
     # Estilo minimalista
     theme_minimal() +
@@ -518,3 +549,6 @@ pa_mh_present_future2 <- function(j, th = .95) {
   print(p)
   
 }  
+
+
+

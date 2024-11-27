@@ -8,17 +8,26 @@ tic()
 
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/PRESENT/"
 dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/FUTURO/IPSL/"
-dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/"
 
+
+
+
+dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA_OLD/PRESENTE/"
+dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA_OLD/RCP85_2050/"
+dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC_ANTIGUO/"
+#OLD/TEST_PNAC/"
+#Peninsula_Iberica_89.shp"
+#national_parks.shp"
 study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/Peninsula_Iberica_89.shp")
-polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/national_parks.shp")
-plot(study_area$geometry)
-plot(polygon$geometry, add = T)
+polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/national_parks_4.shp")
+
 
 # Create name object
-names <- polygon$NAME
+
 year <- "2070"
-model <- "GFDL"
+model <- "OLD"
+
+names <- polygon$NatName
 
 
 # Crear las subcarpetas 'presente' y 'futuro' dentro de 'dir_result'
@@ -72,6 +81,8 @@ reference_system <-"EPSG:4326"
 study_area <- st_transform(study_area, crs(reference_system))
 polygon <- st_transform(polygon, crs(reference_system))
 
+plot(study_area$geometry)
+plot(polygon$geometry, add = T, col = "red")
 
 # Crop raster to study area
 present_climatic_variables <-  terra::mask (crop(present_climatic_variables, study_area), study_area)
@@ -122,13 +133,14 @@ data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
 
 
 # Create name object
-names <- polygon$NAME
+
 
 library(foreach)
 library(doParallel)
 
 # Configurar paralelismo (ajustar según el número de núcleos disponibles)
 num_cores <- parallel::detectCores() - 1
+num_cores <- num_cores/2
 cl <- makeCluster(num_cores)
 registerDoParallel(cl)
 
@@ -148,11 +160,70 @@ results <- foreach(j = 1:length(names), .packages = c("corrplot", "terra", "tict
 # Detener el cluster paralelo
 stopCluster(cl)
 
+a <- toc()
+print(paste0("Tiempo de ejecución: ", round(a/60,2), " minutos"))
+
+
+
+
+
+library(foreach)
+library(doParallel)
+
+# Configuración del backend paralelo
+n_cores <- detectCores() - 1 # Número de núcleos a usar
+n_cores <- 3
+cl <- makeCluster(n_cores)
+registerDoParallel(cl)
+
+clusterExport(cl, varlist = c("polygon"))
+
+# Código paralelo
+tic()
+foreach(j = 1:length(names), .packages = c( "terra", "tidyverse", "sf", "pracma")) %dopar% {
+  pa_mh_present_future2(j)
+}
 toc()
 
+# Detener los clústeres después de la ejecución
+stopCluster(cl)
+
+library(doFuture)
+registerDoFuture()
+plan(multisession, workers = n_cores)  # Cambiar el plan
+
+foreach(j = 1:length(names), .packages = c("terra", "tidyverse", "sf", "pracma")) %dopar% {
+  pa_mh_present_future2(j)
+  polygon <- polygon
+  present_climatic_variables <- present_climatic_variables
+  future_climatic_variables <- future_climatic_variables
+}
+
+
+library(future.apply)
+plan(multisession, workers = n_cores)
+
+future_lapply(1:length(names), function(j) {
+  pa_mh_present_future2(j)
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+tic()
 for(j in 1:length(names)){
   pa_mh_present_future2(j)
 }
+toc()
 
 tic()
 for(j in 1:length(names)){
