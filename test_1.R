@@ -7,25 +7,18 @@ gc(reset = T)
 tic()
 
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/PRESENT/"
-dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/FUTURO/IPSL/"
+dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/FUTURE/GFDL/"
+dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/"
 
+study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/MURCIA.shp")
+polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD//FAST_TEST/PAS_murcia.shp")
 
-
-
-dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA_OLD/PRESENTE/"
-dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA_OLD/RCP85_2050/"
-dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC_ANTIGUO/"
-#OLD/TEST_PNAC/"
-#Peninsula_Iberica_89.shp"
-#national_parks.shp"
-study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/Peninsula_Iberica_89.shp")
-polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/OLD/TEST_PNAC/national_parks_4.shp")
 
 
 # Create name object
 
 year <- "2070"
-model <- "OLD"
+model <- "GFDL"
 
 names <- polygon$NatName
 
@@ -63,13 +56,21 @@ if (!dir.exists(dir_charts)) {
 # CLIMATE ----
 ## Load data ----
 present_climatic_variables <- terra::rast(list.files(dir_present_climate_data, "\\.tif$", full.names = T))
-present_climatic_variables <- present_climatic_variables[[1:17]]
+# Crear un vector con los nombres de las variables a excluir
+exclude_vars <- c("bio8", "bio9", "bio18", "bio19")
+
+# Crear un patrón de expresión regular para excluir estas variables
+exclude_pattern <- paste0("bio(", paste(gsub("bio", "", exclude_vars), collapse = "|"), ")")
+
+# Seleccionar las variables deseadas
+present_climatic_variables <- subset(present_climatic_variables, grep(exclude_pattern, names(present_climatic_variables), invert = TRUE, value = TRUE))
 
 future_climatic_variables <- terra::rast(list.files(dir_future_climate_data, "\\.tif$", full.names = T))
-future_climatic_variables <- future_climatic_variables[[1:17]]
+future_climatic_variables <- subset(future_climatic_variables, grep(exclude_pattern, names(future_climatic_variables), invert = TRUE, value = TRUE))
+
 
 names(present_climatic_variables) <- c("CHELSA_bio1","CHELSA_bio10","CHELSA_bio11","CHELSA_bio12","CHELSA_bio13","CHELSA_bio14",
-                                       "CHELSA_bio15","CHELSA_bio16","CHELSA_bio17","CHELSA_bio18","CHELSA_bio19","CHELSA_bio2",
+                                       "CHELSA_bio15","CHELSA_bio16","CHELSA_bio17","CHELSA_bio2",
                                        "CHELSA_bio3","CHELSA_bio4","CHELSA_bio5","CHELSA_bio6","CHELSA_bio7")
 
 names(future_climatic_variables) <- names(present_climatic_variables)
@@ -80,6 +81,9 @@ reference_system <-"EPSG:4326"
 
 study_area <- st_transform(study_area, crs(reference_system))
 polygon <- st_transform(polygon, crs(reference_system))
+
+
+polygon <- st_intersection(st_crop(polygon, st_bbox(study_area)), study_area)
 
 plot(study_area$geometry)
 plot(polygon$geometry, add = T, col = "red")
@@ -130,6 +134,18 @@ data_future_climatic_variables  <- dplyr::mutate(data_future_climatic_variables,
 # Join two dataset
 colnames(data_future_climatic_variables) <- colnames(data_present_climatic_variables)
 data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
+
+tic()
+for(j in 1:length(names)){
+  pa_mh_present_future2(j, th= .95)
+}
+toc()
+
+#########################################################################
+#########################################################################
+#########################################################################
+#########################################################################
+
 
 
 # Create name object
