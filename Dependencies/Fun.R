@@ -596,7 +596,7 @@ pa_mh_present_future2 <- function(j, th = .9) {
                  "2" = "aquamarine3", 
                  "3" = "coral3"),
       labels = c("0" = "Zonas sin representatividad",
-                 "1" = "Representatividad compartida",
+                 "1" = "Representatividad estable",
                  "2" = "Representatividad presente",
                  "3" = "Representatividad futura"),
       na.value = "transparent"
