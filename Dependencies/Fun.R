@@ -469,6 +469,7 @@ pa_mh_present_future2 <- function(j, th = .9) {
   mh_raster_p <- terra::rast(mh_p[, c(1:2, 4)], crs = reference_system)
   names(mh_raster_p) <- colnames(mh_p[4])
   plot(mh_raster_p, main = paste0( "Present mh distance of ", names[j]))
+  lines(pol, add = T, col = "red")
   writeRaster(mh_raster_p, paste0(dir_present, "MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
   assign(paste0("MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
   
@@ -496,6 +497,7 @@ pa_mh_present_future2 <- function(j, th = .9) {
   raster_th_p <- terra::rasterize(puntos_vect_p, raster_template, field = "th")
   crs(raster_th_p) <- crs(mh_raster_p)
   plot(raster_th_p, main = paste0("Present mh distance threshold of ", names[j]), col = color_map[as.character(sort(unique(values(raster_th_p))))])
+  lines(pol, add = T, col = "black")
   writeRaster(raster_th_p, paste0(dir_present, "TH_MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
   assign(paste0("TH_MH_PRESENT_", names[j]), raster_th_p, envir = .GlobalEnv)
   
@@ -535,6 +537,7 @@ pa_mh_present_future2 <- function(j, th = .9) {
   mh_raster_p_f <- terra::rast(mh_raster_p_f[, c(1:2, 4)], crs = reference_system)
   names(mh_raster_p_f) <- colnames(mh_p_f[4])
   plot(mh_raster_p_f, main = paste0(year," ",model," Future mh distance of ", names[j]))
+  lines(pol, add = T, col = "red")
   writeRaster(mh_raster_p_f,
               paste0(dir_future, "MH_", model, "_", year, "_", names[j], ".tif"),
               overwrite = TRUE)
@@ -562,6 +565,7 @@ pa_mh_present_future2 <- function(j, th = .9) {
   raster_th_f <- terra::rasterize(puntos_vect_f, raster_template, field = "th")
   crs(raster_th_f) <- crs(mh_raster_p_f)
   plot(raster_th_f, main = paste0(year," ",model," mh distance threshold of ", names[j]), col = color_map[as.character(sort(unique(values(raster_th_f))))])
+  lines(pol, add = T, col = "black")
   writeRaster(raster_th_f,
               paste0(dir_future, "TH_MH_", model, "_", year, "_", names[j], ".tif"),
               overwrite = TRUE)
@@ -585,11 +589,12 @@ pa_mh_present_future2 <- function(j, th = .9) {
   
   l <- ggplot() +
     geom_spatraster(data = resultado_factor) +
+    geom_sf(data = pol, color = "black", fill = NA)+
     scale_fill_manual(
       values = c("0" = "grey90", 
-                 "1" = "aquamarine3", 
-                 "2" = "coral3", 
-                 "3" = "blue"),
+                 "1" = "gold", 
+                 "2" = "aquamarine3", 
+                 "3" = "coral3"),
       labels = c("0" = "Zonas sin representatividad",
                  "1" = "Representatividad compartida",
                  "2" = "Representatividad presente",
