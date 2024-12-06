@@ -192,7 +192,7 @@ pa_mh_future <- function(j, th = .95) {
 ## PRESENT-FUTURE----
 # Función para procesar los datos de la serie presente
 pa_mh_present_future <- function(j, th = .9) {
-  color_map <- c("0" = "coral3", "1" = "aquamarine3")
+  
   
   
   # Presente
@@ -216,8 +216,9 @@ pa_mh_present_future <- function(j, th = .9) {
   mh_raster_p <- terra::rast(mh_p[, c(1:2, 4)], crs = reference_system)
   names(mh_raster_p) <- colnames(mh_p[4])
   plot(mh_raster_p, main = paste0( "Present mh distance of ", names[j]))
+  lines(pol, add = T, col = "red")
   writeRaster(mh_raster_p, paste0(dir_present, "MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
-  assign(paste0("MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  #assign(paste0("MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
   
   puntos_todos_p <- terra::as.points(mh_raster_p)
   puntos_todos_p <- sf::st_as_sf(puntos_todos_p)
@@ -240,11 +241,11 @@ pa_mh_present_future <- function(j, th = .9) {
   raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
   puntos_vect_p <- vect(puntos_todos_p)
   
-  raster <- terra::rasterize(puntos_vect_p, raster_template, field = "th")
-  crs(raster) <- crs(mh_raster_p)
-  plot(raster, main = paste0("Present mh distance threshold of ", names[j]), col = color_map[as.character(sort(unique(values(raster))))])
-  writeRaster(raster, paste0(dir_present, "TH_MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
-  assign(paste0("TH_MH_PRESENT_", names[j]), mh_raster_p, envir = .GlobalEnv)
+  raster_th_p <- terra::rasterize(puntos_vect_p, raster_template, field = "th")
+  crs(raster_th_p) <- crs(mh_raster_p)
+  plot(raster_th_p, main = paste0("Present mh distance threshold of ", names[j]), col = c("0" = "grey90", "1" = "aquamarine3"))
+  lines(pol, add = T, col = "black")
+  writeRaster(raster_th_p, paste0(dir_present, "TH_MH_PRESENT_", names[j], ".tif"), overwrite = TRUE)
   
   # Futuro
   data_p_f <- rbind(data_present_climatic_variables, data_future_climatic_variables)
@@ -260,8 +261,6 @@ pa_mh_present_future <- function(j, th = .9) {
   data_polygon <- na.omit(data_polygon)
   
   mh <- mahalanobis(data_p_f[, 4:length(data_p_f)], colMeans(data_polygon[, 3:length(data_polygon)]), cov(data_p_f[, 4:length(data_p_f)]), inverted = F)
-  
-  
   mh_p_f <- cbind(data_p_f[, c(1:3)], mh)
   
   # UMBRAL presente futuro
@@ -276,12 +275,11 @@ pa_mh_present_future <- function(j, th = .9) {
   
   th_mh_p_f <- quantile(na.omit(puntos_dentro_f_p$mh), probs = th)
   
-  ####
-  
   mh_raster_p_f <- dplyr::filter(mh_p_f, Period == "Future")
   mh_raster_p_f <- terra::rast(mh_raster_p_f[, c(1:2, 4)], crs = reference_system)
   names(mh_raster_p_f) <- colnames(mh_p_f[4])
   plot(mh_raster_p_f, main = paste0(year," ",model," Future mh distance of ", names[j]))
+  lines(pol, add = T, col = "red")
   writeRaster(mh_raster_p_f,
               paste0(dir_future, "MH_", model, "_", year, "_", names[j], ".tif"),
               overwrite = TRUE)
@@ -306,16 +304,59 @@ pa_mh_present_future <- function(j, th = .9) {
   raster_template <- rast(ext = bbox, nrows = nrows, ncols = ncols)
   puntos_vect_f <- vect(puntos_todos_f)
   
-  raster <- terra::rasterize(puntos_vect_f, raster_template, field = "th")
-  crs(raster) <- crs(mh_raster_p_f)
-  plot(raster, main = paste0(year," ",model," mh distance threshold of ", names[j]), col = color_map[as.character(sort(unique(values(raster))))])
-  writeRaster(raster,
+  raster_th_f <- terra::rasterize(puntos_vect_f, raster_template, field = "th")
+  crs(raster_th_f) <- crs(mh_raster_p_f)
+  plot(raster_th_f, main = paste0(year," ",model," mh distance threshold of ", names[j]), col = c("0" = "grey90", "1" = "coral3"))
+  lines(pol, add = T, col = "black")
+  writeRaster(raster_th_f,
               paste0(dir_future, "TH_MH_", model, "_", year, "_", names[j], ".tif"),
               overwrite = TRUE)
   
-  assign(paste0("TH_MH_", model, "_", year, "_", names[j]), mh_raster_p, envir = .GlobalEnv)
   
+  # 1. Superficie compartida (1 en ambos rasters)
+  compartida <- raster_th_p * raster_th_f
   
+  # 2. Superficie en raster1 pero no en raster2
+  solo_presente <- (raster_th_p == 1) * (raster_th_f == 0)
+  
+  # 3. Superficie en raster2 pero no en raster1
+  solo_futura <- (raster_th_p == 0) * (raster_th_f == 1)
+  
+  # Crear un raster final con todas las categorías
+  raster_th_p_f <- compartida + (solo_presente * 2) + (solo_futura * 3)
+  
+  resultado_factor <- as.factor(raster_th_p_f)
+  
+  l <- ggplot() +
+    geom_spatraster(data = resultado_factor) +
+    geom_sf(data = study_area, color = "gray50", fill = NA, lwd  = 1.5) +
+    geom_sf(data = pol, color = "black", fill = NA) +
+    scale_fill_manual(
+      values = c("0" = "grey90", 
+                 "1" = "gold", 
+                 "2" = "aquamarine3", 
+                 "3" = "coral3"),
+      labels = c("0" = "Non-representativeness areas",
+                 "1" = "Stable representativeness",
+                 "2" = "Present representativeness",
+                 "3" = "Future representativeness"),
+      na.value = "transparent",
+      na.translate = FALSE  # Añade esta línea
+    ) +
+    coord_sf() +
+    theme_minimal() +
+    labs(title = paste0(names[j]),
+         fill = " ")
+  
+  ggsave(filename = paste0(dir_charts, names[j], "_rep_shared.jpeg"), plot = l, width = 10, height = 8)
+  print(l)
+  
+  crs(raster_th_p_f) <- crs(mh_raster_p_f)
+  writeRaster(raster_th_p_f,
+              paste0(dir_future, "TH_MH_PRESENT_", model, "_", year, "_", names[j], ".tif"),
+              overwrite = TRUE)
+  
+  #assign(paste0("TH_MH_", model, "_", year, "_", names[j]), raster_th_f, envir = .GlobalEnv)  
   dist <- sf::st_distance(puntos_todos_p, pol)
   
   # Para obtener la distancia mínima por cada punto, tomamos el valor mínimo de cada fila
@@ -388,64 +429,41 @@ pa_mh_present_future <- function(j, th = .9) {
   area_futuro <- round(trapz(resultados_comb$dist, resultados_comb$porcentaje_unos_f/100),2)
   area_compartida <- round(trapz(resultados_comb$dist, pmin(resultados_comb$porcentaje_unos_p/100, resultados_comb$porcentaje_unos_f/100)),2)
   
-    # Graficar con los dos ejes
+  # Graficar con los dos ejes
   p <- ggplot() +
-    # Área para los valores "Present"
-    geom_area(data = resultados_comb, aes(x = dist, y = porcentaje_unos_p, fill = "Present"), alpha = 0.5, size = 3) +
-    # Área para los valores "Future"
-    geom_area(data = resultados_comb, aes(x = dist, y = porcentaje_unos_f, fill = "Future"), alpha = 0.5, size = 3) +
     # Línea para n_unos_p acumulado
-    geom_line(data = resultados_comb, aes(x = dist, y = n_unos_p_acum / factor_escala, group = 1), color = "aquamarine4", size = 1) + 
+    geom_line(data = resultados_comb, aes(x = dist, y = n_unos_p_acum, color = "Present", fill = "Present"), size = 1) + 
     # Línea para n_unos_f acumulado
-    geom_line(data = resultados_comb, aes(x = dist, y = n_unos_f_acum / factor_escala, group = 2), color = "coral3", size = 1) + 
-    # Línea horizontal escalada al eje derecho
-    geom_segment(
-      aes(
-        x = min(resultados_comb$dist),  # Inicio del segmento (mínima distancia)
-        xend = max(resultados_comb$dist), # Fin del segmento (máxima distancia)
-        y = nrow(puntos_dentro_p) / factor_escala, # Escalado para eje derecho
-        yend = nrow(puntos_dentro_p) / factor_escala # Escalado para eje derecho
-      ),
-      color = "black", 
-      linetype = "dashed",
-      size = 1
-    ) +
+    geom_line(data = resultados_comb, aes(x = dist, y = n_unos_f_acum, color = "Future", fill = "Future"), size = 1) + 
+    geom_hline(yintercept = nrow(puntos_dentro_p), color = "black", linetype = "dashed", size = 1) +
+    
     # Títulos y etiquetas
     labs(
       title = names[j],
       subtitle = paste0(year, "_", model),
-      x = "Distancia (km)",
-      y = "Porcentaje receptoras",
-      fill = "Escenario",
-      color = "Escenario",
-      caption = paste0("AUC Presente = ", area_presente, 
-                       "   AUC Futuro = ", area_futuro, 
-                       "   AUC Compartida = ", area_compartida)
+      x = "Distance (km)",
+      y = "Cumulative representative cells",
+      fill = "Scenario",
+      color = "Scenario"
     ) +
     # Estilo minimalista
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     scale_fill_manual(values = c("Present" = "aquamarine3", "Future" = "coral3")) +
+    scale_color_manual(values = c("Present" = "aquamarine4", "Future" = "coral3"))
     # Segunda escala en el eje y derecho para la diferencia acumulada (AUC)
-    scale_y_continuous(
-      name = "Porcentaje receptoras",  # Eje izquierdo
-      limits = c(0, 100),  # Aseguramos que el rango en Y izquierdo esté de 0 a 100
-      sec.axis = sec_axis(
-        trans = ~ . * factor_escala,  # Escala de transformación ajustada para el eje derecho
-        name = "Celdas receptoras acumuladas",  # Eje derecho
-        labels = scales::comma
-      )  # Eje derecho con la transformación aplicada
-    )
+    
   ggsave(filename = paste0(dir_charts, names[j], "_scenarios_difference.jpeg"), plot = p, width = 10, height = 8)
   print(p)
   
 }  
 
 
+
 ## PRESENT-FUTURE 2----
 # Función para procesar los datos de la serie presente
 pa_mh_present_future2 <- function(j, th = .9) {
-  color_map <- c("0" = "coral3", "1" = "aquamarine3")
+  color_map <- c("0" = "grey90", "1" = "aquamarine3")
   
   
   # Presente

@@ -4,14 +4,12 @@ source("Dependencies/Fun.R")
 gc(reset = T)
 
 
-tic()
-
 dir_present_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/PRESENT/"
 dir_future_climate_data <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/CLIMA/FUTURE/GFDL/"
-dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/"
+dir_result <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/MURCIA/"
 
-study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/FAST_TEST/MURCIA.shp")
-polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD//FAST_TEST/PAS_murcia.shp")
+study_area <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/MURCIA/MURCIA.shp")
+polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/MURCIA/WDPA_MURCIA_89N.shp")
 
 
 
@@ -20,7 +18,7 @@ polygon <- read_sf("C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD//FAST_TEST/PAS_murc
 year <- "2070"
 model <- "GFDL"
 
-names <- polygon$NatName
+names <- polygon$NAME
 
 
 # Crear las subcarpetas 'presente' y 'futuro' dentro de 'dir_result'
@@ -81,7 +79,7 @@ reference_system <-"EPSG:4326"
 
 study_area <- st_transform(study_area, crs(reference_system))
 polygon <- st_transform(polygon, crs(reference_system))
-
+polygon <- st_make_valid(polygon)
 
 polygon <- st_intersection(st_crop(polygon, st_bbox(study_area)), study_area)
 
@@ -137,6 +135,46 @@ data <- rbind(data_present_climatic_variables, data_future_climatic_variables)
 
 tic()
 for(j in 1:length(names)){
-  pa_mh_present_future2(j, th= .95)
+  pa_mh_present_future(j, th= .99)
 }
 toc()
+
+
+library(terra)
+library(tidyverse)
+library(ggplot2)
+
+# Definir la ruta de la carpeta
+ruta <- "C:/A_TRABAJO/A_GABRIEL/REPRESENTATIVIDAD/MURCIA/Future/2070/GFDL/TH/"
+
+
+# Patrón para seleccionar los archivos
+patron <- "Paisaje Protegido|Parque Regional|ZEC|LIC|ZEPA"  #"Paisaje Protegido|Parque Regional|ZEC|LIC|ZEPA"
+
+patrones <- unlist(strsplit(patron, "\\|"))
+
+# Iterar sobre cada patrón
+for (p in patron) {
+  archivos <- list.files(ruta, pattern = p, full.names = TRUE)
+  rasters <- rast(archivos)
+    suma_rasters <- sum(rasters)
+    writeRaster(suma_rasters,
+                paste0(dir_result, "Representatividad_Futura_ENPs.tif"),
+                overwrite = TRUE)
+    df <- as.data.frame(suma_rasters, xy = TRUE)
+    
+    # Plotear con ggplot
+    plot <- ggplot() +
+      geom_raster(data = df, aes(x = x, y = y, fill = sum)) +
+      scale_fill_viridis_c(name = "Suma") +
+      coord_equal() +
+      theme_minimal() +
+      labs(title = paste("Suma de Rasters -", p),
+           x = "Longitud",
+           y = "Latitud")
+    
+    # Mostrar o guardar el plot
+    print(plot)
+    # Descomenta la siguiente línea si quieres guardar el plot
+    # ggsave(paste0("plot_", p, ".png"), plot, width = 10, height = 8)
+}
